@@ -1,1 +1,0 @@
-from communityconnect import app
