@@ -1,0 +1,38 @@
+{
+  "dataset_rows": 120,
+  "train_rows": 84,
+  "test_rows": 36,
+  "seed": 42,
+  "embedding_backend": "local-cpu",
+  "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "semantic_bounds": {
+    "lo": 0.12220665941890649,
+    "hi": 0.9339140931317719
+  },
+  "weights": {
+    "semantic": 0.5239608435705689,
+    "location": 0.3542165166274254,
+    "availability": 0.0,
+    "language": 0.0,
+    "reliability": 0.12182263980200563
+  },
+  "logistic_intercept": -33.01524220167269,
+  "metrics": {
+    "old": {
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "ndcg_at_5": 1.0,
+      "false_match_rate": 0.0,
+      "false_matches_shown": 0,
+      "bad_pairs": 18
+    },
+    "new": {
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "ndcg_at_5": 1.0,
+      "false_match_rate": 0.0,
+      "false_matches_shown": 0,
+      "bad_pairs": 18
+    }
+  }
+}

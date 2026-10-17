@@ -1,0 +1,13 @@
+{
+  "weights": {
+    "semantic": 0.5239608435705689,
+    "location": 0.3542165166274254,
+    "availability": 0.0,
+    "language": 0.0,
+    "reliability": 0.12182263980200563
+  },
+  "semantic_bounds": {
+    "lo": 0.12220665941890649,
+    "hi": 0.9339140931317719
+  }
+}

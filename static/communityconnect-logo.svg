@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 64" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">CommunityConnect</title>
+  <defs>
+    <clipPath id="left-person">
+      <path d="M8 54C8 40 15 32 24 32s16 8 16 22Z"/>
+    </clipPath>
+  </defs>
+  <circle cx="24" cy="19" r="8" fill="#0F766E"/>
+  <path d="M8 54C8 40 15 32 24 32s16 8 16 22Z" fill="#0F766E"/>
+  <circle cx="40" cy="19" r="8" fill="#F2A33A"/>
+  <path d="M24 54c0-14 7-22 16-22s16 8 16 22Z" fill="#F2A33A"/>
+  <path d="M24 54c0-14 7-22 16-22s16 8 16 22Z" fill="#0B3B38" clip-path="url(#left-person)"/>
+  <text x="70" y="43" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="30" fill="#0B3B38" letter-spacing="-0.5"><tspan font-weight="500">Community</tspan><tspan font-weight="800">Connect</tspan></text>
+</svg>

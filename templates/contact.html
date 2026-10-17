@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <title>{{ tr('Connection details · CommunityConnect') }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='language.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">CC</span><span>Community<span class="accent">Connect</span></span></a><nav><span class="language-switch" aria-label="{{ tr('Language') }}"><a class="language-option" title="Italiano" aria-label="Italiano" href="{{ url_for('select_language', language='it', next=language_next) }}" aria-current="{{ 'page' if language == 'it' else 'false' }}">IT</a><span aria-hidden="true">/</span><a class="language-option" title="English" aria-label="English" href="{{ url_for('select_language', language='en', next=language_next) }}" aria-current="{{ 'page' if language == 'en' else 'false' }}">EN</a></span><span class="ai-status" data-backend="{{ ai_status['backend'] }}">{{ tr('AMD AI') if ai_status['backend'] == 'amd' else tr('Local AI') }}</span><a href="{{ url_for('dashboard') }}">{{ tr('My workspace') }}</a><a href="{{ url_for('privacy') }}">{{ tr('Privacy') }}</a></nav></header>
+<main><section class="workspace"><a class="back" href="{{ url_for('dashboard') }}">← {{ tr('Back to workspace') }}</a><p class="eyebrow">{{ tr('CONNECTION ACTIVE') }}</p><h1>{{ tr('Contact details') }}</h1><p class="muted">{{ tr('Both participants have agreed to connect. Arrange details directly and use your judgment when meeting.') }}</p><div class="dashboard-grid"><div class="panel"><h2>{{ seeker['name'] }}</h2><p>{{ seeker['email'] }}</p><p>{{ seeker['phone'] or tr('No phone number provided') }}</p></div><div class="panel"><h2>{{ helper['name'] }}</h2><p>{{ helper['email'] }}</p><p>{{ helper['phone'] or tr('No phone number provided') }}</p></div></div>
+{% if original_message is defined %}<div class="dashboard-grid translation-result"><div class="panel"><h2>{{ tr('Original') }}</h2><p>{{ original_message }}</p></div><div class="panel"><h2>{{ tr('Translation') }}</h2><p>{{ translated_message }}</p></div></div>{% endif %}
+<div class="panel"><h2>{{ tr('Translate a message') }}</h2><form method="post" action="{{ url_for('translate_connection_message', connection_id=connection_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>{{ tr('Message to translate') }}<textarea name="message" required maxlength="1000"></textarea></label><label>{{ tr('Translate to') }}<select name="target_language" required>{% for code, name in translation_languages.items() %}<option value="{{ code }}">{{ tr(name) }}</option>{% endfor %}</select></label><button class="button primary" type="submit">{{ tr('Translate') }}</button></form></div></section></main>
+</body>
+</html>

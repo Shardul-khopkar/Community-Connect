@@ -1,0 +1,77 @@
+{% set values = request_form_values or {} %}
+{% set selected_language = values.get('user_lang') if 'user_lang' in values else (intake.get('language') if intake and not intake.get('language_needs_confirmation') else '') %}
+<form id="request-help-form" class="request-help-form" method="post" action="{{ url_for('request_help') }}" data-preview-url="{{ url_for('request_intake_preview') }}" data-language="{{ language }}" data-required-label="{{ tr('Required') }}" data-nice-label="{{ tr('Nice to have') }}" data-suggested-label="{{ tr('Suggested') }}" data-remove-label="{{ tr('Remove') }}" data-place-label="{{ tr('Place') }}" data-skill-label="{{ tr('Skills needed') }}" data-slot-label="{{ tr('Availability') }}" data-number-label="{{ tr('Numeric requirements') }}" data-spoken-label="{{ tr('Requested spoken language') }}" data-category-label="{{ tr('Service category') }}" data-urgency-label="{{ tr('Urgency') }}" data-previewing-label="{{ tr('Reading your request...') }}" data-preview-error="{{ tr('Could not read details yet. You can still submit your request.') }}" data-finding-label="{{ tr('Finding suitable matches...') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="intake_preview_hash" value="{{ values.get('intake_preview_hash', '') }}">
+  <input type="hidden" name="category" value="{{ values.get('category', intake.get('category', '') if intake else '') }}">
+  <input type="hidden" name="category_source" value="{{ values.get('category_source', '') }}">
+  <input type="hidden" name="category_required" value="{{ 'yes' if values.get('category_required') else 'no' }}">
+  <input type="hidden" name="place_id" value="{{ values.get('place_id', intake.get('place_id', '') if intake else '') }}">
+  <input type="hidden" name="place_source" value="{{ values.get('place_source', '') }}">
+  <input type="hidden" name="place_required" value="{{ 'yes' if values.get('place_required') else 'no' }}">
+  <input type="hidden" name="skills_required" value="{{ 'yes' if values.get('skills_required') else 'no' }}">
+  <input type="hidden" name="availability_required" value="{{ 'yes' if values.get('availability_required') else 'no' }}">
+  <input type="hidden" name="numbers_required" value="{{ 'yes' if values.get('numbers_required') else 'no' }}">
+  <input type="hidden" name="stated_lang_required" value="{{ 'yes' if values.get('stated_lang_required') else 'no' }}">
+  <input type="hidden" name="urgency_touched" value="{{ 'yes' if values.get('urgency_touched') else 'no' }}">
+  <input type="hidden" name="user_lang_confirmed" value="{{ 'yes' if values.get('user_lang_confirmed') else 'no' }}">
+
+  <fieldset class="request-category-picker">
+    <legend>{{ tr('Service category') }}</legend>
+    <div class="request-category-chips">
+      <label class="request-category-chip"><input type="radio" name="category_choice" value="" {% if not values.get('category_choice') %}checked{% endif %}><span>{{ tr('Not sure / anything') }}</span></label>
+      {% for category in request_categories %}<label class="request-category-chip"><input type="radio" name="category_choice" value="{{ category }}" {% if values.get('category_choice') == category %}checked{% endif %}><span>{{ tr(category_short_labels[category]) }}</span></label>{% endfor %}
+    </div>
+  </fieldset>
+
+  <label class="request-description-label" for="request-description">{{ tr('Request description') }}</label>
+  <textarea id="request-description" name="description" rows="3" placeholder="{% if language == 'it' %}Cerco ripetizioni di matematica il sabato mattina a Genova, sono disponibile anche la sera, preferisco parlare italiano.{% else %}I need math tutoring on Saturday morning in Genoa, I am also free in the evening, and I prefer to speak Italian.{% endif %}" required maxlength="1000">{{ values.get('description', draft_description or '') }}</textarea>
+
+  <div class="request-main-fields">
+    <div class="request-place-field">
+      <label for="request-place-query">{{ tr('Preferred place') }} <span class="muted">{{ tr('optional') }}</span></label>
+      <input id="request-place-query" name="place_query" type="search" list="liguria-place-options" autocomplete="off" value="{{ values.get('place_query', intake.get('place') if intake and intake.get('place') else '') }}" placeholder="{{ tr('Type a municipality') }}">
+      <datalist id="liguria-place-options">{% for place in places %}<option value="{{ place['name'] }} · {{ place['province'] }}" data-place-id="{{ place['place_id'] }}"></option>{% endfor %}</datalist>
+    </div>
+
+    <fieldset class="written-language-field">
+      <legend>{{ tr('Written in') }}</legend>
+      <div class="written-language-toggle">
+        <label><input type="radio" name="user_lang" value="it" {% if selected_language == 'it' %}checked{% endif %}><span>{{ tr('Italian') }}</span></label>
+        <label><input type="radio" name="user_lang" value="en" {% if selected_language == 'en' %}checked{% endif %}><span>{{ tr('English') }}</span></label>
+      </div>
+      <p class="microcopy language-confirmation" {% if not values.get('language_needs_confirmation') and not (intake and intake.get('language_needs_confirmation')) %}hidden{% endif %}>{{ tr('Confirm the language of this short or ambiguous request.') }}</p>
+    </fieldset>
+
+    <div class="request-urgency-field">
+      <label for="request-urgency">{{ tr('Urgency') }}</label>
+      <select id="request-urgency" name="urgency">{% for urgency in ['normal', 'soon', 'urgent'] %}<option value="{{ urgency }}" {% if values.get('urgency', intake.get('urgency', 'normal') if intake else 'normal') == urgency %}selected{% endif %}>{{ tr(urgency) }}</option>{% endfor %}</select>
+    </div>
+  </div>
+
+  <section class="request-understood" id="request-understood" aria-live="polite" hidden>
+    <h3>{{ tr('We understood') }}</h3>
+    <p>{{ tr('Edit or remove any suggestion before matching.') }}</p>
+    <p class="request-preview-status" id="request-preview-status" role="status" hidden></p>
+    <div class="request-understood-chips" id="request-understood-chips"></div>
+  </section>
+
+  <details class="request-more-details" id="request-more-details">
+    <summary>{{ tr('Add more details') }}</summary>
+    <label for="request-skills">{{ tr('Skills needed') }}</label>
+    <textarea id="request-skills" name="skill_tags" rows="2" maxlength="800">{{ values.get('skill_tags', intake.get('skills', []) | join(', ') if intake else '') }}</textarea>
+    <label for="request-numbers">{{ tr('Numeric requirements') }}</label>
+    <textarea id="request-numbers" name="number_constraints" rows="2" maxlength="500" placeholder="{{ tr('For example: hours=2 hours') }}">{{ values.get('number_constraints', intake.get('number_constraints_text', '') if intake else '') }}</textarea>
+    <label for="request-spoken-language">{{ tr('Requested spoken language') }}</label>
+    <select id="request-spoken-language" name="stated_lang"><option value="">{{ tr('No stated language requirement') }}</option>{% for code, language_name in spoken_language_options.items() %}<option value="{{ code }}" {% if values.get('stated_lang', intake.get('stated_lang', '') if intake else '') == code %}selected{% endif %}>{{ tr(language_name) }}</option>{% endfor %}</select>
+    <fieldset class="request-availability-field">
+      <legend>{{ tr('Availability slots') }}</legend>
+      <div class="request-availability-grid">
+        {% for day in availability_days %}<div class="request-availability-row"><strong>{{ tr(day) | title }}</strong>{% for part in availability_parts %}<label><input type="checkbox" name="availability_slots" value="{{ day }}|{{ part }}" data-day-label="{{ tr(day) | title }}" data-part-label="{{ tr(part) | title }}" {% if {'day': day, 'part_of_day': part} in values.get('availability_slots', intake.get('availability_slots', []) if intake else []) %}checked{% endif %}><span>{{ tr(part) | title }}</span></label>{% endfor %}</div>{% endfor %}
+      </div>
+    </fieldset>
+  </details>
+
+  <button class="button primary request-submit" type="submit">{{ tr('Find suitable matches') }} <span>→</span></button>
+  <p class="request-privacy-note">{{ tr('Your details are used to find suitable help; contact details are not shared.') }}</p>
+</form>

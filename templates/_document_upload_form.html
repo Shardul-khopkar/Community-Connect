@@ -1,0 +1,12 @@
+<div class="panel document-upload">
+  <p class="eyebrow">{{ tr('DOCUMENT HELP') }}</p>
+  <h2>{{ tr('Photograph a letter or form') }}</h2>
+  <p class="muted">{{ tr('The image is sent to the AI service and not stored. Image text is not automatically masked; use fake letters in demos and avoid real sensitive documents.') }}</p>
+  <form method="post" action="{{ url_for('document_intake') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>{{ tr('Document image') }}<input type="file" name="document_image" accept="image/png,image/jpeg,image/webp" required></label>
+    <label>{{ tr('What help would you like with it?') }}<input name="document_context" maxlength="500"></label>
+    <label><input type="checkbox" name="document_consent" value="yes" required> {{ tr('I consent to sending this image to the AMD AI service for analysis. The image will not be stored.') }}</label>
+    <button class="button primary" type="submit">{{ tr('Explain this document') }}</button>
+  </form>
+</div>

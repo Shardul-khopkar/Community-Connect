@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <title>{{ tr('Browse services') }} · CommunityConnect</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='language.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">CC</span><span>Community<span class="accent">Connect</span></span></a>
+  <nav>
+    <span class="language-switch" aria-label="{{ tr('Language') }}"><a class="language-option" title="Italiano" aria-label="Italiano" href="{{ url_for('select_language', language='it', next=language_next) }}" aria-current="{{ 'page' if language == 'it' else 'false' }}">IT</a><span aria-hidden="true">/</span><a class="language-option" title="English" aria-label="English" href="{{ url_for('select_language', language='en', next=language_next) }}" aria-current="{{ 'page' if language == 'en' else 'false' }}">EN</a></span>
+    <span class="ai-status" data-backend="{{ ai_status['backend'] }}">{{ tr('AMD AI') if ai_status['backend'] == 'amd' else tr('Local AI') }}</span>
+    <a href="{{ url_for('index') }}">{{ tr('Home') }}</a>
+    {% if user %}<a href="{{ url_for('dashboard') }}">{{ tr('My workspace') }}</a>{% else %}<a class="nav-login" href="{{ url_for('login') }}"><i class="ui-icon" data-lucide="log-in" aria-hidden="true"></i>{{ tr('Log in') }}</a><a class="nav-cta" href="{{ url_for('register') }}"><i class="ui-icon" data-lucide="user-plus" aria-hidden="true"></i>{{ tr('Create account') }}</a>{% endif %}
+  </nav>
+</header>
+<main>
+  <section class="workspace services-page">
+    <a class="back" href="{{ url_for('index') }}">← {{ tr('Home') }}</a>
+    <div class="services-page-heading"><p class="eyebrow">{{ tr('BROWSE LOCAL HELP') }}</p><h1>{{ tr('Browse services') }}</h1><p class="muted">{{ tr('Service listings from students, volunteers and local organizations.') }}</p></div>
+    <form class="service-search directory-search" action="{{ url_for('services') }}" method="get"><label class="service-search-label" for="directory-query">{{ tr('Search local services') }}</label><div><input id="directory-query" name="q" type="search" maxlength="100" value="{{ query }}" placeholder="{{ tr('Search for tutoring, housing, SPID help...') }}"><button class="button primary" type="submit"><i class="ui-icon" data-lucide="search" aria-hidden="true"></i><span>{{ tr('Search services') }}</span></button></div></form>
+    <div class="category-chips service-filters"><a class="category-chip {{ 'active' if not selected_category else '' }}" href="{{ url_for('services', q=query or None) }}"><i class="ui-icon" data-lucide="grid-2x2" aria-hidden="true"></i><span>{{ tr('All services') }}</span></a>{% for category in service_categories %}<a class="category-chip {{ 'active' if selected_category == category['value'] else '' }}" href="{{ url_for('services', category=category['value'], q=query or None) }}"><i class="ui-icon" data-lucide="{{ category['icon'] }}" aria-hidden="true"></i><span>{{ tr(category['label']) }}</span></a>{% endfor %}</div>
+    <div class="services-results-heading"><h2>{{ tr('Search results') }}</h2><span>{{ offers | length }} {{ tr('service offers') }}</span></div>
+    {% if offers %}<div class="service-grid directory-grid">{% for offer in offers %}<article class="service-card"><div class="service-card-meta"><span class="badge"><i class="ui-icon" data-lucide="{{ offer['icon'] }}" aria-hidden="true"></i>{{ tr(offer['category']) }}</span><span>{{ tr(offer['provider_type']) }}</span>{% if offer['profile'].get('is_demo') %}<span class="badge demo-badge">{{ tr('Demo data') }}</span>{% endif %}</div><div class="service-card-title"><h3>{{ translate_content(offer['profile']['skills']) }}</h3></div><p class="service-provider">{{ tr('Offered by') }} <strong>{{ offer['profile']['name'] }}</strong></p><div class="service-location"><span>{{ translate_content(offer['profile']['location']) }}</span><span>{{ translate_content(offer['profile']['availability']) }}</span></div><p class="service-description">{{ translate_content(offer['profile']['bio']) }}</p><div class="service-card-actions">{% if user and user['role'] == 'seeker' %}<a class="button primary" href="{{ url_for('dashboard') }}">{{ tr('Request this service') }}</a>{% elif user %}<a class="button outline" href="{{ url_for('dashboard') }}">{{ tr('Open your workspace') }}</a>{% else %}<a class="button primary" href="{{ url_for('register', role='seeker') }}">{{ tr('Request this service') }}</a>{% endif %}</div></article>{% endfor %}</div>{% else %}<div class="empty services-empty"><h2>{{ tr('No services match your search.') }}</h2><p>{{ tr('Search by service, area or provider.') }}</p><a class="button outline" href="{{ url_for('services') }}">{{ tr('Clear filters') }}</a></div>{% endif %}
+  </section>
+</main>
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+<script src="{{ url_for('static', filename='polish.js') }}" defer></script>
+</body>
+</html>

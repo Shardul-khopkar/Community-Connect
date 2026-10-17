@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+communityconnect.db
+.env
+.env.*
+!.env.example

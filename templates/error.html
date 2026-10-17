@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <title>{{ status_code }} · CommunityConnect</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='language.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">CC</span><span>Community<span class="accent">Connect</span></span></a><nav><span class="language-switch" aria-label="{{ tr('Language') }}"><a class="language-option" title="Italiano" aria-label="Italiano" href="{{ url_for('select_language', language='it', next='/') }}" aria-current="{{ 'page' if language == 'it' else 'false' }}">IT</a><span aria-hidden="true">/</span><a class="language-option" title="English" aria-label="English" href="{{ url_for('select_language', language='en', next='/') }}" aria-current="{{ 'page' if language == 'en' else 'false' }}">EN</a></span></nav></header>
+<main><section class="workspace"><p class="eyebrow">{{ status_code }} / {{ tr('REQUEST NOT COMPLETED') }}</p><h1>{{ tr('We couldn’t complete that request.') }}</h1><p class="muted">{{ tr(message) }}</p><a class="button primary" href="{{ url_for('index') }}">{{ tr('Return home') }}</a></section></main>
+</body>
+</html>
