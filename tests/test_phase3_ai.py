@@ -93,11 +93,17 @@ class PhaseThreeCoreTests(unittest.TestCase):
         self.assertFalse(request["explicit_constraints"]["category"])
 
     def test_matching_uses_manual_components_when_embeddings_are_unavailable(self):
-        helper = {
-            "id": "helper-1", "active": True, "categories": ["Education"],
-            "spoken_languages": ["it"], "skill_tags": ["math tutoring"], "bio": "Math tutor",
-            "availability_slots": [{"day": "saturday", "part_of_day": "morning"}],
-        }
+        helpers = [
+            {
+                "id": "rental-helper", "active": True, "categories": ["Housing Support"],
+                "skill_tags": ["Student rental guidance", "room search"],
+                "bio": "Student rental guidance, room search, and forms",
+            },
+            {
+                "id": "grocery-helper", "active": True, "categories": ["Food Support"],
+                "skill_tags": ["Groceries"], "bio": "Grocery shopping and small errands",
+            },
+        ]
         stored_matches = []
 
         class Query:
@@ -122,14 +128,14 @@ class PhaseThreeCoreTests(unittest.TestCase):
                 return self
 
             def execute(self):
-                rows = [helper] if self.table_name == "profiles" else stored_matches
+                rows = helpers if self.table_name == "profiles" else stored_matches
                 return SimpleNamespace(data=rows)
 
         client = SimpleNamespace(table=lambda name: Query(name))
         request = {
-            "id": 1, "description": "Cerco ripetizioni", "skill_tags": ["matematica"],
-            "category": "Education", "emergency": False, "medical": False,
-            "availability_slots": [{"day": "saturday", "part_of_day": "morning"}],
+            "id": 1, "description": "I need help finding rentals in Sanremo",
+            "skill_tags": ["Rental guidance"], "category": "Housing Support",
+            "emergency": False, "medical": False,
         }
         with patch("communityconnect.get_service_client", return_value=client), patch(
             "communityconnect.load_or_create_embeddings_with_backend", return_value=None,
@@ -137,9 +143,11 @@ class PhaseThreeCoreTests(unittest.TestCase):
             result = communityconnect.find_matches(request)
 
         self.assertEqual(result["status"], "ok")
+        self.assertEqual([item["helper"]["id"] for item in result["matches"]], ["rental-helper"])
         self.assertEqual(result["matches"][0]["backend"], {"request": "manual", "helper": "manual"})
         self.assertEqual(result["matches"][0]["confidence"], 99)
         self.assertIsNone(result["matches"][0]["components"]["semantic"])
+        self.assertEqual(result["matches"][0]["components"]["relevance"], 1.0)
         self.assertFalse(hasattr(communityconnect, "score_match"))
 
     def test_deidentification_masks_names_contact_and_address_then_restores_locally(self):

@@ -65,6 +65,7 @@ _SYNONYMS = {
     "assistenza": "care",
     "anziani": "elderly",
 }
+_MANUAL_STOPWORDS = {"and", "find", "finding", "for", "help", "need", "service", "services", "support"}
 
 
 def normalize_text(value: str) -> str:
@@ -74,6 +75,29 @@ def normalize_text(value: str) -> str:
     words = re.findall(r"[a-z0-9]+", unaccented)
     normalized = [_SYNONYMS.get(word, word) for word in words]
     return " ".join(normalized)
+
+
+def manual_relevance_component(request: Mapping[str, Any], helper: Mapping[str, Any]) -> float | None:
+    def tokens(record: Mapping[str, Any], fields: Sequence[str]) -> set[str]:
+        values = []
+        for field in fields:
+            value = record.get(field)
+            if isinstance(value, str):
+                values.append(value)
+            elif isinstance(value, Sequence):
+                values.extend(item for item in value if isinstance(item, str))
+        return {
+            word
+            for value in values
+            for word in normalize_text(value).split()
+            if word not in _MANUAL_STOPWORDS
+        }
+
+    requested = tokens(request, ("category", "skill", "skills", "skill_tags"))
+    offered = tokens(helper, ("categories", "skills", "skill_tags", "bio"))
+    if not requested or not offered:
+        return None
+    return len(requested & offered) / len(requested)
 
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float | None:
@@ -231,7 +255,11 @@ def calculate_match(request: Mapping[str, Any], helper: Mapping[str, Any], *, co
     user_lang = request.get("user_lang") if request.get("user_lang_confirmed") else None
     language = language_component(user_lang, request.get("stated_lang"), languages, bool(request.get("translation_ok")))
     reliability = reliability_component(helper.get("ratings") or [], helper.get("response_rate"))
-    components = {"semantic": semantic, "location": location, "availability": availability, "language": language, "reliability": reliability}
+    relevance = manual_relevance_component(request, helper) if semantic is None else None
+    components = {
+        "semantic": semantic, "relevance": relevance, "location": location,
+        "availability": availability, "language": language, "reliability": reliability,
+    }
     included = {name: value for name, value in components.items() if value is not None}
     score_weights = (
         {name: 1.0 for name in included if name != "semantic"}

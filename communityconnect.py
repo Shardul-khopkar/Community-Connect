@@ -1109,6 +1109,9 @@ def find_matches(help_request):
             backend=backend,
             model=embedding_result["model"] if cosine is not None and embedding_result else "manual-components",
         )
+        if cosine is None and components["components"]["relevance"] is None:
+            app.logger.info("Skipping manual match without service relevance: helper_id=%s", helper.get("id"))
+            continue
         if components["confidence"] is None or components["confidence"] < 40:
             continue
         scored.append({"helper": helper, **components})
