@@ -335,27 +335,33 @@ class PhaseOneSecurityTests(unittest.TestCase):
     def test_connection_uses_server_computed_score_not_submitted_score(self):
         self.set_csrf("seeker-id")
         seeker = {"id": "seeker-id", "role": "seeker"}
-        help_request = {"id": 3, "seeker_id": "seeker-id", "description": "Maths tutoring", "status": "open"}
-        helper = {"id": "helper-id", "role": "helper"}
+        help_request = {
+            "id": 3, "seeker_id": "seeker-id", "description": "Maths tutoring",
+            "status": "open", "emergency": False, "medical": False,
+        }
+        helper = {"id": "helper-id", "role": "helper", "active": True}
+        match_result = {"request_id": 3, "helper_id": "helper-id", "score": 87, "score_components": {"backend": "manual"}}
         select_query = Mock()
         select_query.eq.return_value = select_query
-        select_query.maybe_single.return_value.execute.return_value = SimpleNamespace(data=None)
+        select_query.maybe_single.return_value.execute.return_value = None
         insert_query = Mock()
         insert_query.execute.return_value = SimpleNamespace(data=[])
         service_client = Mock()
         service_client.table.return_value.select.return_value = select_query
         service_client.table.return_value.insert.return_value = insert_query
-        candidate = {"helper": helper, "confidence": 87, "components": {}, "weights": {}}
         with patch("communityconnect.current_user", return_value=seeker), \
-                patch("communityconnect.get_one", side_effect=[help_request, helper]), \
-            patch("communityconnect.find_matches", return_value={"status": "ok", "matches": [candidate], "rejections": []}), \
+                patch("communityconnect.get_one", side_effect=[help_request, helper, match_result]) as get_one, \
+                patch("communityconnect.find_matches") as find_matches, \
                 patch("communityconnect.get_service_client", return_value=service_client):
             response = self.client.post("/connect/3/helper-id", data={"csrf_token": "test-csrf-token", "score": "0"})
         self.assertEqual(response.status_code, 302)
         inserted = service_client.table.return_value.insert.call_args.args[0]
         self.assertEqual(inserted["score"], 87)
+        self.assertEqual(inserted["score_components"], {"backend": "manual"})
         self.assertFalse(inserted["seeker_accepted"])
         self.assertFalse(inserted["helper_accepted"])
+        find_matches.assert_not_called()
+        self.assertEqual([call.args[0] for call in get_one.call_args_list], ["help_requests", "profiles", "match_results"])
 
     def test_helper_acceptance_waits_for_seeker_confirmation(self):
         self.set_csrf("helper-id")

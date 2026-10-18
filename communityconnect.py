@@ -1839,18 +1839,20 @@ def connect(request_id, helper_id):
     helper = get_one("profiles", id=helper_id)
     if not help_request or not helper or helper["role"] not in HELPER_ROLES:
         abort(404)
-    match_result = find_matches(help_request)
-    candidate = next((item for item in match_result["matches"] if item["helper"]["id"] == helper_id), None)
-    if not candidate:
+    if eligibility_reasons(help_request, helper):
         abort(400)
     client = get_service_client()
-    existing = client.table("connections").select("id").eq("request_id", request_id).eq("helper_id", helper_id).maybe_single().execute().data
+    match_result = get_one("match_results", request_id=request_id, helper_id=helper_id)
+    if not match_result:
+        abort(400)
+    existing_response = client.table("connections").select("id").eq("request_id", request_id).eq("helper_id", helper_id).maybe_single().execute()
+    existing = existing_response.data if existing_response else None
     if not existing:
         client.table("connections").insert({
             "request_id": request_id,
             "helper_id": helper_id,
-            "score": candidate["confidence"],
-            "score_components": {key: value for key, value in candidate.items() if key not in {"helper", "confidence"}},
+            "score": match_result["score"],
+            "score_components": match_result.get("score_components") or {},
             "status": "pending",
             "seeker_accepted": False,
             "helper_accepted": False,
