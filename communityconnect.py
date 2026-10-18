@@ -1084,33 +1084,30 @@ def find_matches(help_request):
     except Exception:
         app.logger.exception("Matching embeddings failed")
         embedding_result = None
-    if not embedding_result:
-        app.logger.warning("Cannot rank request %s: multilingual embeddings unavailable", help_request["id"])
-        return {"status": "cannot_rank", "matches": [], "rejections": rejected}
-
-    vectors = embedding_result["vectors"]
-    embedding_backends = embedding_result["backends"]
-    if len(vectors) != len(eligible) + 1 or not vectors[0]:
-        app.logger.warning("Cannot rank request %s: incomplete request embeddings", help_request["id"])
-        return {"status": "cannot_rank", "matches": [], "rejections": rejected}
+    vectors = embedding_result.get("vectors") if embedding_result else None
+    embedding_backends = embedding_result.get("backends") if embedding_result else None
+    if vectors is not None and (len(vectors) != len(eligible) + 1 or not vectors[0]):
+        app.logger.warning("Incomplete request embeddings for %s; using manual scoring", help_request["id"])
+        vectors = None
+        embedding_backends = None
+    if vectors is None:
+        app.logger.info("AMD embeddings unavailable for %s; using manual scoring", help_request["id"])
     places = load_place_catalog()
     scored = []
     for index, helper in enumerate(eligible, start=1):
-        cosine = cosine_similarity(vectors[0], vectors[index])
-        if cosine is None:
-            reasons = ["semantic_embedding_invalid_or_incompatible"]
-            rejection = {"helper_id": str(helper.get("id", "")), "reasons": reasons}
-            rejected.append(rejection)
-            app.logger.info("Match candidate rejected: helper_id=%s reasons=%s", rejection["helper_id"], ",".join(reasons))
-            continue
+        cosine = cosine_similarity(vectors[0], vectors[index]) if vectors else None
+        backend = (
+            {"request": embedding_backends[0], "helper": embedding_backends[index]}
+            if cosine is not None and embedding_backends else {"request": "manual", "helper": "manual"}
+        )
         components = calculate_match(
             help_request,
             helper,
             cosine=cosine,
             request_place=places.get(help_request.get("place_id")),
             helper_place=places.get(helper.get("place_id")),
-            backend={"request": embedding_backends[0], "helper": embedding_backends[index]},
-            model=embedding_result["model"],
+            backend=backend,
+            model=embedding_result["model"] if cosine is not None and embedding_result else "manual-components",
         )
         if components["confidence"] is None or components["confidence"] < 40:
             continue

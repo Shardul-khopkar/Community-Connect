@@ -92,11 +92,13 @@ class PhaseThreeCoreTests(unittest.TestCase):
         self.assertIn("affitto stanza", matching_text)
         self.assertFalse(request["explicit_constraints"]["category"])
 
-    def test_matching_does_not_replace_missing_embeddings_with_keyword_scores(self):
+    def test_matching_uses_manual_components_when_embeddings_are_unavailable(self):
         helper = {
             "id": "helper-1", "active": True, "categories": ["Education"],
             "spoken_languages": ["it"], "skill_tags": ["math tutoring"], "bio": "Math tutor",
+            "availability_slots": [{"day": "saturday", "part_of_day": "morning"}],
         }
+        stored_matches = []
 
         class Query:
             def __init__(self, table_name):
@@ -109,26 +111,35 @@ class PhaseThreeCoreTests(unittest.TestCase):
                 return self
 
             def delete(self):
+                stored_matches.clear()
+                return self
+
+            def upsert(self, rows, **_kwargs):
+                stored_matches.extend(rows)
                 return self
 
             def eq(self, *_args):
                 return self
 
             def execute(self):
-                return SimpleNamespace(data=[helper] if self.table_name == "profiles" else [])
+                rows = [helper] if self.table_name == "profiles" else stored_matches
+                return SimpleNamespace(data=rows)
 
         client = SimpleNamespace(table=lambda name: Query(name))
         request = {
             "id": 1, "description": "Cerco ripetizioni", "skill_tags": ["matematica"],
             "category": "Education", "emergency": False, "medical": False,
+            "availability_slots": [{"day": "saturday", "part_of_day": "morning"}],
         }
         with patch("communityconnect.get_service_client", return_value=client), patch(
             "communityconnect.load_or_create_embeddings_with_backend", return_value=None,
         ):
             result = communityconnect.find_matches(request)
 
-        self.assertEqual(result["status"], "cannot_rank")
-        self.assertEqual(result["matches"], [])
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["matches"][0]["backend"], {"request": "manual", "helper": "manual"})
+        self.assertEqual(result["matches"][0]["confidence"], 99)
+        self.assertIsNone(result["matches"][0]["components"]["semantic"])
         self.assertFalse(hasattr(communityconnect, "score_match"))
 
     def test_deidentification_masks_names_contact_and_address_then_restores_locally(self):
@@ -226,24 +237,16 @@ class PhaseThreeCoreTests(unittest.TestCase):
             self.assertEqual(load_or_create_embeddings([text], "test-model"), [[1.0, 0.0]])
         embed.assert_called_once_with([text])
 
-    def test_embedding_cache_uses_local_cpu_and_records_backend_version(self):
+    def test_embedding_cache_does_not_fall_back_to_local_cpu(self):
         with tempfile.TemporaryDirectory() as directory, \
-                patch.dict(os.environ, {"AI_EMBEDDING_CACHE_DB": os.path.join(directory, "cache.db")}), \
-                patch("core.ai_client.embed_texts", return_value=None), \
-                patch("core.local_embeddings.embed_texts_local", return_value=[[0.6, 0.8]]) as local_embed:
-            result = load_or_create_embeddings_with_backend(["ripetizioni matematica"], "test-model", "v-test")
-            cached = get_cached_embeddings(["ripetizioni matematica"], "test-model", "v-test")
-        self.assertEqual(result["vectors"], [[0.6, 0.8]])
-        self.assertEqual(result["backend"], "local-cpu")
-        self.assertEqual(result["model_version"], "v-test")
-        self.assertEqual(cached, [[0.6, 0.8]])
-        local_embed.assert_called_once()
-
-    def test_embedding_cache_returns_none_when_both_backends_are_unavailable(self):
-        with patch("core.ai_client.embed_texts", return_value=None), \
-                patch("core.local_embeddings.embed_texts_local", side_effect=RuntimeError("missing local model")):
-            result = load_or_create_embeddings_with_backend(["request"], "test-model", "v-test")
+                patch.dict(os.environ, {"AI_EMBEDDING_CACHE_DB": os.path.join(directory, "cache.db")}):
+            store_embeddings(["ripetizioni matematica"], [[0.6, 0.8]], "test-model", "v-test", "local-cpu")
+            with patch("core.ai_client.embed_texts", return_value=None) as amd_embed, \
+                    patch("core.local_embeddings.embed_texts_local") as local_embed:
+                result = load_or_create_embeddings_with_backend(["ripetizioni matematica"], "test-model", "v-test")
         self.assertIsNone(result)
+        amd_embed.assert_called_once_with(["ripetizioni matematica"])
+        local_embed.assert_not_called()
 
     def test_emergency_triage_blocks_before_any_ai_call(self):
         with patch("communityconnect.ask_ai") as ask:

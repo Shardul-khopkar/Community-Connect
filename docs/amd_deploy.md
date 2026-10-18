@@ -1,6 +1,15 @@
 # AMD Developer Cloud AI deployment
 
-This guide deploys the optional inference service in `server.py`. AMD ROCm/PyTorch packages stay on the AMD host. The Windows Flask `.venv` can install the separate `local_ai_requirements.txt` to run the same sentence-transformer model on CPU when AMD is unavailable; without that optional package, matching reports that it cannot rank rather than using keyword scores.
+This guide deploys the optional inference service in `server.py`. AMD ROCm/PyTorch packages stay on the AMD host. Matching uses AMD embeddings when the service is healthy; otherwise it scores available structured details such as distance, availability, language, reliability, and explicit constraints. It does not load an embedding model on the Flask CPU or substitute keyword similarity.
+
+## Matching backends at a glance
+
+| Backend | When it is used | What to deploy |
+| --- | --- | --- |
+| AMD service (`server.py`) | `AI_BASE_URL`/`AI_API_KEY` set and `/health` responds | This guide |
+| Manual component scoring | AMD embeddings unavailable | No model installation; uses structured request and profile details |
+
+Manual scores omit semantic similarity and equally weight the available non-semantic components. If no such components or explicit constraints are available, no match score is produced.
 
 ## Before starting
 

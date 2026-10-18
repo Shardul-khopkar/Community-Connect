@@ -233,8 +233,12 @@ def calculate_match(request: Mapping[str, Any], helper: Mapping[str, Any], *, co
     reliability = reliability_component(helper.get("ratings") or [], helper.get("response_rate"))
     components = {"semantic": semantic, "location": location, "availability": availability, "language": language, "reliability": reliability}
     included = {name: value for name, value in components.items() if value is not None}
-    weight_total = sum(WEIGHTS[name] for name in included)
-    raw_score = sum(WEIGHTS[name] * value for name, value in included.items()) / weight_total if weight_total else None
+    score_weights = (
+        {name: 1.0 for name in included if name != "semantic"}
+        if semantic is None else WEIGHTS
+    )
+    weight_total = sum(score_weights.get(name, 0.0) for name in included)
+    raw_score = sum(score_weights.get(name, 0.0) * value for name, value in included.items()) / weight_total if weight_total else None
     constraint_results = exact_constraint_results(request, helper)
     exact_hits = sum(result["matched"] for result in constraint_results)
     exact_all = bool(constraint_results) and exact_hits == len(constraint_results)
@@ -248,7 +252,7 @@ def calculate_match(request: Mapping[str, Any], helper: Mapping[str, Any], *, co
         "semantic_cosine": cosine,
         "semantic_calibration": {"lo": SEMANTIC_LO, "hi": SEMANTIC_HI},
         "components": components,
-        "weights": {name: WEIGHTS[name] if value is not None else None for name, value in components.items()},
+        "weights": {name: score_weights.get(name) if value is not None else None for name, value in components.items()},
         "distance_km": distance_km,
         "lang_exact": int(bool(user_lang and user_lang.casefold() in {str(value).casefold() for value in languages})),
         "exact_all": exact_all,

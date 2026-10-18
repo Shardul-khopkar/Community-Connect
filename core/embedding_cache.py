@@ -102,11 +102,12 @@ def store_embeddings(
 
 
 def load_or_create_embeddings_with_backend(
-    texts: list[str], model_id: str, model_version: str = _DEFAULT_MODEL_VERSION,
+    texts: list[str], model_id: str, model_version: str = _DEFAULT_MODEL_VERSION, *, allow_remote: bool = True,
 ) -> dict | None:
     records = _get_cached_embedding_records(texts, model_id, model_version)
-    cached = [record[0] if record else None for record in records]
-    backends = [record[1] if record else None for record in records]
+    amd_records = [record if record and record[1] == "amd" else None for record in records]
+    cached = [record[0] if record else None for record in amd_records]
+    backends = [record[1] if record else None for record in amd_records]
     missing_indexes = [index for index, vector in enumerate(cached) if vector is None]
     if not missing_indexes:
         sources = sorted(set(backends))
@@ -116,21 +117,16 @@ def load_or_create_embeddings_with_backend(
             "model": model_id, "model_version": model_version,
         }
 
-    from core.ai_client import embed_texts
-
     missing_texts = [texts[index] for index in missing_indexes]
-    vectors = embed_texts(missing_texts)
-    backend = "amd"
-    if vectors is None:
-        from core.local_embeddings import embed_texts_local
-        from core.privacy import deidentify_text
+    vectors = None
+    backend = "local-cpu"
+    if allow_remote:
+        from core.ai_client import embed_texts
 
-        safe_texts = [deidentify_text(text)[0] for text in missing_texts]
-        try:
-            vectors = embed_texts_local(safe_texts, model_id)
-        except RuntimeError:
-            return None
-        backend = "local-cpu"
+        vectors = embed_texts(missing_texts)
+        backend = "amd"
+    if vectors is None:
+        return None
     store_embeddings(missing_texts, vectors, model_id, model_version, backend)
     for index, vector in zip(missing_indexes, vectors):
         cached[index] = vector

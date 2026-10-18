@@ -274,7 +274,8 @@ class PhaseOneSecurityTests(unittest.TestCase):
         insert.execute.return_value = SimpleNamespace(data=[])
         with patch("communityconnect.current_user", return_value=None), \
                 patch("communityconnect.get_auth_client", return_value=SimpleNamespace(auth=SimpleNamespace(sign_up=Mock(return_value=auth_response)))), \
-                patch("communityconnect.get_service_client", return_value=service_client):
+                patch("communityconnect.get_service_client", return_value=service_client), \
+                patch("communityconnect._precompute_matching_embedding", return_value=None):
             response = self.client.post("/register", data={
                 "csrf_token": "test-csrf-token", "name": "Tutor", "email": "tutor@example.com",
                 "password": "long-enough-password", "role": "helper", "consent": "yes",
@@ -323,7 +324,8 @@ class PhaseOneSecurityTests(unittest.TestCase):
         update_query.eq.return_value = update_query
         update_query.execute.return_value = SimpleNamespace(data=[])
         with patch("communityconnect.current_user", return_value=helper), \
-                patch("communityconnect.get_service_client", return_value=service_client):
+                patch("communityconnect.get_service_client", return_value=service_client), \
+                patch("communityconnect._precompute_matching_embedding", return_value=None):
             response = self.client.post("/profile/active", data={
                 "csrf_token": "test-csrf-token", "active": "yes",
             })
