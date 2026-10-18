@@ -1187,6 +1187,7 @@ def get_connections_for_user(user, as_helper):
             results.append({
                 **connection,
                 "description": help_request["description"],
+                "request_status": help_request["status"],
                 "seeker_name": other["name"] if as_helper else user["name"],
                 "helper_name": other["name"] if not as_helper else user["name"],
             })
@@ -1515,8 +1516,10 @@ def render_seeker_dashboard(
     client = get_service_client()
     mine = response_rows(client.table("help_requests").select("*").eq("seeker_id", user["id"]).order("id", desc=True).execute())
     outgoing = get_connections_for_user(user, as_helper=False)
+    protected_request_ids = {item["request_id"] for item in outgoing if item["status"] == "accepted"}
     return render_template(
-        "index.html", user=user, mine=mine, outgoing=outgoing, incoming=[], page="dashboard",
+        "index.html", user=user, mine=mine, outgoing=outgoing, incoming=[],
+        protected_request_ids=protected_request_ids, page="dashboard",
         intake=intake, safety=safety, document=document, draft_description=draft_description,
         request_categories=REQUEST_CATEGORIES, translation_languages=TRANSLATION_LANGUAGE_NAMES,
         spoken_language_options=SPOKEN_LANGUAGE_OPTIONS,
@@ -1801,6 +1804,56 @@ def request_help():
     return _render_match_results(user, help_request, match_result)
 
 
+@app.route("/request/<int:request_id>/status", methods=["POST"])
+@login_required
+def update_help_request_status(request_id):
+    user = current_user()
+    if user["role"] != "seeker":
+        abort(403)
+    help_request = get_one("help_requests", id=request_id, seeker_id=user["id"])
+    if not help_request:
+        abort(404)
+    status = request.form.get("status", "")
+    if status not in {"open", "closed"}:
+        abort(400)
+
+    client = get_service_client()
+    client.table("help_requests").update({"status": status}).eq("id", request_id).eq(
+        "seeker_id", user["id"],
+    ).execute()
+    if status == "closed":
+        client.table("connections").update({"status": "rejected"}).eq(
+            "request_id", request_id,
+        ).eq("status", "pending").execute()
+        flash("Request closed. Pending helper requests were withdrawn.", "success")
+    else:
+        flash("Request reopened.", "success")
+    return redirect(url_for("dashboard", _anchor=f"request-{request_id}"))
+
+
+@app.route("/request/<int:request_id>/delete", methods=["POST"])
+@login_required
+def delete_help_request(request_id):
+    user = current_user()
+    if user["role"] != "seeker":
+        abort(403)
+    help_request = get_one("help_requests", id=request_id, seeker_id=user["id"])
+    if not help_request:
+        abort(404)
+    client = get_service_client()
+    accepted = response_rows(client.table("connections").select("id").eq(
+        "request_id", request_id,
+    ).eq("status", "accepted").execute())
+    if accepted:
+        flash("This request has an accepted connection. Close it instead of deleting it.", "error")
+        return redirect(url_for("dashboard", _anchor=f"request-{request_id}"))
+    client.table("help_requests").delete().eq("id", request_id).eq(
+        "seeker_id", user["id"],
+    ).execute()
+    flash("Request deleted.", "success")
+    return redirect(url_for("dashboard", _anchor="requests"))
+
+
 def _render_match_results(user, help_request, match_result):
     return render_template(
         "index.html",
@@ -1886,6 +1939,22 @@ def update_connection(connection_id, action):
         abort(403)
     update.execute()
     flash("Connection updated.", "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/connection/<int:connection_id>/remove", methods=["POST"])
+@login_required
+def remove_helper_connection(connection_id):
+    user = current_user()
+    if user["role"] not in HELPER_ROLES:
+        abort(403)
+    connection = get_one("connections", id=connection_id, helper_id=user["id"])
+    if not connection or connection["status"] not in {"pending", "rejected"}:
+        abort(404)
+    get_service_client().table("connections").delete().eq(
+        "id", connection_id,
+    ).eq("helper_id", user["id"]).execute()
+    flash("Request removed from your inbox.", "success")
     return redirect(url_for("dashboard"))
 
 

@@ -363,6 +363,89 @@ class PhaseOneSecurityTests(unittest.TestCase):
         find_matches.assert_not_called()
         self.assertEqual([call.args[0] for call in get_one.call_args_list], ["help_requests", "profiles", "match_results"])
 
+    def test_seeker_can_close_owned_request_and_withdraw_pending_connections(self):
+        self.set_csrf("seeker-id")
+        seeker = {"id": "seeker-id", "role": "seeker"}
+        request_update = Mock()
+        request_update.eq.return_value = request_update
+        request_update.execute.return_value = SimpleNamespace(data=[])
+        connection_update = Mock()
+        connection_update.eq.return_value = connection_update
+        connection_update.execute.return_value = SimpleNamespace(data=[])
+        service_client = Mock()
+        service_client.table.side_effect = lambda name: SimpleNamespace(
+            update=lambda _values: request_update if name == "help_requests" else connection_update,
+        )
+        with patch("communityconnect.current_user", return_value=seeker), \
+                patch("communityconnect.get_one", return_value={"id": 3, "seeker_id": "seeker-id"}), \
+                patch("communityconnect.get_service_client", return_value=service_client):
+            response = self.client.post("/request/3/status", data={
+                "csrf_token": "test-csrf-token", "status": "closed",
+            })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(request_update.eq.call_args_list[0].args, ("id", 3))
+        self.assertEqual(
+            [call.args for call in connection_update.eq.call_args_list],
+            [("request_id", 3), ("status", "pending")],
+        )
+
+    def test_seeker_can_delete_request_without_accepted_connections(self):
+        self.set_csrf("seeker-id")
+        seeker = {"id": "seeker-id", "role": "seeker"}
+        connection_query = Mock()
+        connection_query.eq.return_value = connection_query
+        connection_query.execute.return_value = SimpleNamespace(data=[])
+        request_delete = Mock()
+        request_delete.eq.return_value = request_delete
+        request_delete.execute.return_value = SimpleNamespace(data=[])
+        service_client = Mock()
+        service_client.table.side_effect = lambda name: SimpleNamespace(
+            select=lambda *_args: connection_query,
+            delete=lambda: request_delete,
+        )
+        with patch("communityconnect.current_user", return_value=seeker), \
+                patch("communityconnect.get_one", return_value={"id": 3, "seeker_id": "seeker-id"}), \
+                patch("communityconnect.get_service_client", return_value=service_client):
+            response = self.client.post("/request/3/delete", data={"csrf_token": "test-csrf-token"})
+        self.assertEqual(response.status_code, 302)
+        request_delete.execute.assert_called_once()
+
+    def test_seeker_cannot_delete_request_with_accepted_connection(self):
+        self.set_csrf("seeker-id")
+        seeker = {"id": "seeker-id", "role": "seeker"}
+        connection_query = Mock()
+        connection_query.eq.return_value = connection_query
+        connection_query.execute.return_value = SimpleNamespace(data=[{"id": 9}])
+        request_table = Mock()
+        service_client = Mock()
+        service_client.table.side_effect = lambda _name: SimpleNamespace(
+            select=lambda *_args: connection_query,
+            delete=request_table.delete,
+        )
+        with patch("communityconnect.current_user", return_value=seeker), \
+                patch("communityconnect.get_one", return_value={"id": 3, "seeker_id": "seeker-id"}), \
+                patch("communityconnect.get_service_client", return_value=service_client):
+            response = self.client.post("/request/3/delete", data={"csrf_token": "test-csrf-token"})
+        self.assertEqual(response.status_code, 302)
+        request_table.delete.assert_not_called()
+
+    def test_helper_can_remove_only_their_own_pending_request(self):
+        self.set_csrf("helper-id")
+        helper = {"id": "helper-id", "role": "helper"}
+        connection = {"id": 9, "helper_id": "helper-id", "status": "pending"}
+        delete_query = Mock()
+        delete_query.eq.return_value = delete_query
+        delete_query.execute.return_value = SimpleNamespace(data=[])
+        service_client = Mock()
+        service_client.table.return_value.delete.return_value = delete_query
+        with patch("communityconnect.current_user", return_value=helper), \
+                patch("communityconnect.get_one", return_value=connection) as get_one, \
+                patch("communityconnect.get_service_client", return_value=service_client):
+            response = self.client.post("/connection/9/remove", data={"csrf_token": "test-csrf-token"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(get_one.call_args.kwargs, {"id": 9, "helper_id": "helper-id"})
+        delete_query.execute.assert_called_once()
+
     def test_helper_acceptance_waits_for_seeker_confirmation(self):
         self.set_csrf("helper-id")
         helper = {"id": "helper-id", "role": "helper"}

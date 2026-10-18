@@ -366,7 +366,10 @@ class PhaseThreeRouteTests(unittest.TestCase):
         query = Mock()
         query.eq.return_value = query
         query.order.return_value = query
-        query.execute.return_value = SimpleNamespace(data=[])
+        query.execute.return_value = SimpleNamespace(data=[{
+            "id": 3, "category": "Housing Support", "description": "Rental guidance",
+            "status": "open", "is_demo": False,
+        }])
         service_client = Mock()
         service_client.table.return_value.select.return_value = query
         with patch("communityconnect.current_user", return_value=self.seeker), \
@@ -379,7 +382,27 @@ class PhaseThreeRouteTests(unittest.TestCase):
         self.assertIn(b"Add more details", response.data)
         self.assertIn(b"Not sure / anything", response.data)
         self.assertIn(b"document_consent", response.data)
+        self.assertIn(b"Close request", response.data)
+        self.assertIn(b"Delete request", response.data)
+        self.assertNotIn(b"browser-ai.js", response.data)
         self.assertIn(b"contact details are not shared", response.data.lower())
+
+    def test_helper_dashboard_offers_removal_for_own_pending_request(self):
+        helper = {
+            "id": "helper-id", "name": "Tutor", "role": "helper", "skills": "Rent guidance",
+            "bio": "", "location": "Genova", "availability": "Flexible", "experience": "", "active": True,
+        }
+        incoming = [{
+            "id": 7, "status": "pending", "helper_accepted": False,
+            "seeker_name": "Rita", "description": "Looking for a rental",
+        }]
+        with patch("communityconnect.current_user", return_value=helper), \
+                patch("communityconnect.get_service_client"), \
+                patch("communityconnect.get_connections_for_user", return_value=incoming):
+            response = self.client.get("/dashboard")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Remove from my requests", response.data)
+        self.assertIn(b"/connection/7/remove", response.data)
 
     def test_emergency_and_advice_requests_skip_database_matching(self):
         self.set_csrf()

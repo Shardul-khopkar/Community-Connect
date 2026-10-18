@@ -12,10 +12,10 @@
 <body>
 <header class="topbar"><a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">CC</span><span>Community<span class="accent">Connect</span></span></a><nav><span class="language-switch" aria-label="{{ tr('Language') }}"><a class="language-option" title="Italiano" aria-label="Italiano" href="{{ url_for('select_language', language='it', next=language_next) }}" aria-current="{{ 'page' if language == 'it' else 'false' }}">IT</a><span aria-hidden="true">/</span><a class="language-option" title="English" aria-label="English" href="{{ url_for('select_language', language='en', next=language_next) }}" aria-current="{{ 'page' if language == 'en' else 'false' }}">EN</a></span><span class="ai-status" data-backend="{{ ai_status['backend'] }}">{{ tr('AMD AI') if ai_status['backend'] == 'amd' else tr('Local AI') }}</span><a href="{{ url_for('index') }}">{{ tr('Home') }}</a>{% if user %}<a href="{{ url_for('dashboard') }}">{{ tr('My workspace') }}</a>{% else %}<a class="nav-login" href="{{ url_for('login') }}">{{ tr('Log in') }}</a>{% endif %}</nav></header>
 <main>
-  <section class="workspace">
+  <section class="workspace legal-page">
     <p class="eyebrow">{{ tr('PRIVACY NOTICE') }}</p>
     <h1>{{ tr('Your data and choices') }}</h1>
-    <div class="panel">
+    <div class="panel legal-copy">
       <h2>{{ tr('What this prototype stores') }}</h2>
       <p>{{ tr('With your consent, CommunityConnect stores your name, email address, optional phone number, location, role, skills, availability, experience, and introduction. Help requests and connection statuses are also stored. Supabase Auth processes your email and password; the app does not store your password itself.') }}</p>
       <h2>{{ tr('Why') }}</h2>
